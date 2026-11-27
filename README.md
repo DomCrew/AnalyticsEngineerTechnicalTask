@@ -1,4 +1,4 @@
-# Powertica Analytics Engineer Technical Task
+# Analytics Engineer Technical Task
 
 ## Part 1 — Power Trading Desk Reporting Task
 
