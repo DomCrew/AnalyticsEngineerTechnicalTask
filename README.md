@@ -29,11 +29,11 @@ Run the [solution script](solution.sql) in your database to get the solution.
 
 > Describe at least three automated tests or validation checks you would implement to ensure the resulting data is reliable.
 
-1. Unit tests - Check that each individual stage of the query is completed correctly. For example, testing that cancelled trades are not included or that only the latest market prices and trade revisions are used
+1. Trade and Market Correctness - Check that each individual stage of the query is completed correctly. In this example, I would probably use views or functions in place of the CTEs that I actually used. Those could be tested separately for their correctness. You would want to check; cancelled trades are excluded, there are no duplicates in either table, trade ID is unique and only the most recent prices and revisions are used.
 
-2. Integration Tests - Run the query in an actual database with known real data, comparing the output to the correct expected result
+2. Output Validation - Make sure the actual output is acceptable. There are multiple things to test here; only one row per interval, unrealised P&L is NULL for unavailable market prices, unrealised P&L and net/gross traded volume are correct given the input.
 
-3. Output correctness - Make sure the actual output is acceptable, for example checking the unrealised pnl is correct or that all rows are unique
+3. Integration Tests - Run the query in an actual database with known real data, comparing the complete output to the correct expected result and testing that output on any downstream processes that might rely on it.
 
 These could be run as part of CI/CD pipelines to ensure no regression has taken place or bugs have been introduced.
 
@@ -43,6 +43,8 @@ These could be run as part of CI/CD pipelines to ensure no regression has taken 
 
 To avoid rebuilding the entire history, you would want to know which delivery intervals are going to be affected by the incoming changes. Then you would only perform the aggregation and calculations for those intervals. I would then overwrite existing rows with UPSERT, where delivery is unique.
 
-I would schedule a job (possibly with Airflow) to check for any new changes since the last run and work from there. Another row in both tables which defaults to the time when the row is inserted might be needed for this to work properly. You would also have to keep track of when the last successful run took place. I would use UPSERT because this ensures that rerunning the pipeline for any reason would not create duplicate rows.
+To do this, I would schedule a job (possibly with Airflow) to check for any new changes since the last run and work from there. Another row in both tables which defaults to the current time would be required for this implementation. I would call it "recieved_at". You would also have to keep track of when the last successful run took place. Then find any trade revision or market update with a recieved time after the last successful update. From there, you would know which intervals would need to be calculated again.
+
+After this, I would perform data quality checks and update the time for the last successful run. You would want to rollback the update and leave the timestamp as is if data checks do not pass.
 
 You could schedule it however often is needed based on requirements but I would start at every half hour just to match the interval.
